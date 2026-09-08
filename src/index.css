@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  body {
+    font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+    background-color: #0A0A0A;
+    color: #E0D8D0;
+  }
+  
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
+  }
+
+  .font-amiri {
+    font-family: 'Amiri', serif;
+  }
+}
+
+/* Light Theme Styling Overrides */
+html.light-theme,
+html.light-theme body {
+  background-color: #F8F5F0 !important;
+  color: #1F1B16 !important;
+}
+
+html.light-theme header {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: #E8E2D8 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Backgrounds & Cards in Light Mode */
+html.light-theme .bg-\[\#0A0A0A\],
+html.light-theme .bg-\[\#101010\],
+html.light-theme .bg-\[\#111111\],
+html.light-theme .bg-\[\#121212\],
+html.light-theme .bg-\[\#141414\],
+html.light-theme .bg-\[\#161616\],
+html.light-theme .bg-\[\#171717\],
+html.light-theme .bg-\[\#181818\],
+html.light-theme .bg-\[\#1A1A1A\],
+html.light-theme .bg-\[\#1E1E1E\],
+html.light-theme .bg-\[\#1C1C1C\],
+html.light-theme .bg-\[\#202020\],
+html.light-theme .bg-\[\#222222\],
+html.light-theme .bg-\[\#242424\],
+html.light-theme .bg-\[\#262626\],
+html.light-theme .bg-\[\#282828\] {
+  background-color: #FFFFFF !important;
+  border-color: #E8E2D8 !important;
+  color: #1F1B16 !important;
+}
+
+/* Gold/Amber Tinted containers in Light Mode */
+html.light-theme .bg-\[\#1A140B\],
+html.light-theme .bg-\[\#1C160E\],
+html.light-theme .bg-\[\#1E170F\],
+html.light-theme .bg-\[\#241D12\],
+html.light-theme .bg-\[\#251D10\],
+html.light-theme .bg-\[\#261E10\],
+html.light-theme .bg-\[\#282012\],
+html.light-theme .bg-\[\#282013\],
+html.light-theme .bg-\[\#2A2012\],
+html.light-theme .bg-\[\#2F2617\],
+html.light-theme .bg-\[\#3D2E14\],
+html.light-theme .bg-\[\#18150D\],
+html.light-theme .bg-\[\#14120D\] {
+  background-color: #FDF7E7 !important;
+  border-color: #DEC798 !important;
+  color: #1F1B16 !important;
+}
+
+/* Secondary Neutral surfaces (e.g. table headers, inner wells) */
+html.light-theme .bg-\[\#151515\],
+html.light-theme .bg-\[\#191919\],
+html.light-theme .bg-\[\#1D1D1D\] {
+  background-color: #FAF8F5 !important;
+  border-color: #E8E2D8 !important;
+}
+
+/* Typography contrast in Light Mode */
+html.light-theme .text-\[\#F5EBE6\],
+html.light-theme .text-\[\#E0D8D0\],
+html.light-theme .text-stone-100,
+html.light-theme .text-stone-200,
+html.light-theme .text-stone-300 {
+  color: #1F1B16 !important;
+}
+
+html.light-theme .text-\[\#A8A096\],
+html.light-theme .text-\[\#8C827A\],
+html.light-theme .text-\[\#9C948A\],
+html.light-theme .text-\[\#6C635B\],
+html.light-theme .text-stone-400,
+html.light-theme .text-stone-500 {
+  color: #6E6359 !important;
+}
+
+html.light-theme .text-\[\#D4AF37\] {
+  color: #8A6414 !important;
+}
+
+/* Borders in Light Mode */
+html.light-theme .border-\[\#222222\],
+html.light-theme .border-\[\#262626\],
+html.light-theme .border-\[\#282828\],
+html.light-theme .border-\[\#2A2A2A\],
+html.light-theme .border-\[\#2B2B2B\],
+html.light-theme .border-\[\#2C2317\],
+html.light-theme .border-\[\#2D2D2D\],
+html.light-theme .border-\[\#333333\],
+html.light-theme .border-\[\#383838\],
+html.light-theme .border-\[\#3A2E14\],
+html.light-theme .border-\[\#3A2E16\],
+html.light-theme .border-\[\#3A3022\],
+html.light-theme .border-\[\#3E2E18\],
+html.light-theme .border-\[\#3E2E14\],
+html.light-theme .border-\[\#4A3B1B\],
+html.light-theme .border-\[\#5A451A\] {
+  border-color: #E8E2D8 !important;
+}
+
+/* Input elements in Light Mode */
+html.light-theme input:not([type="checkbox"]):not([type="radio"]),
+html.light-theme select,
+html.light-theme textarea {
+  background-color: #FAF8F5 !important;
+  border-color: #DEC798 !important;
+  color: #1F1B16 !important;
+}
+
+html.light-theme input::placeholder,
+html.light-theme textarea::placeholder {
+  color: #9C9389 !important;
+}
+
+/* Gradient overrides in Light Mode */
+html.light-theme .from-\[\#241A0A\],
+html.light-theme .from-\[\#241B0E\],
+html.light-theme .from-\[\#251D10\] {
+  --tw-gradient-from: #FAF4E8 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: #F6EDE0 var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from), var(--tw-gradient-to)) !important;
+}
+
+html.light-theme .to-\[\#14120D\],
+html.light-theme .to-\[\#141414\],
+html.light-theme .to-\[\#17130B\] {
+  --tw-gradient-to: #FFFDF8 var(--tw-gradient-to-position) !important;
+}
+
+/* Custom dark & gold smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #121212;
+}
+::-webkit-scrollbar-thumb {
+  background: #383125;
+  border-radius: 9999px;
+  border: 1px solid #201D17;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
+}
+
+html.light-theme ::-webkit-scrollbar-track {
+  background: #F0EAE1;
+}
+html.light-theme ::-webkit-scrollbar-thumb {
+  background: #C4B69E;
+  border: 1px solid #E0D6C5;
+}
+
+/* Thermal receipt print layout */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #thermal-receipt, #thermal-receipt * {
+    visibility: visible;
+  }
+  #thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+    background: white;
+    color: black;
+    font-family: monospace;
+    font-size: 12px;
+  }
+}

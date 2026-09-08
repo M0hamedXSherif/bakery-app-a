@@ -1,0 +1,6 @@
+{
+  "name": "مخبز النور الذهبي - نظام نقاط البيع والمخزون",
+  "description": "نظام كاشير ونقاط بيع متطور وإدارة مخزون ومواد خام للمخابز مع مصفوفة صلاحيات وبيع بالوزن وموافقات الاسترجاع",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
