@@ -48,6 +48,7 @@ import {
   FileText,
   ShieldAlert,
   UserPlus,
+  Cloud,
 } from 'lucide-react';
 import { useBakery } from '../../context/BakeryContext';
 import { StartShiftModal } from '../common/StartShiftModal';
@@ -112,7 +113,32 @@ export const OwnerDashboard: React.FC = () => {
     exportBackupJSON,
     restoreBackupJSON,
     exportSalesCSV,
+
+    supabaseConnected,
+    syncProductsToSupabase,
   } = useBakery();
+
+  const [isSupabaseSyncing, setIsSupabaseSyncing] = useState(false);
+  const [supabaseSyncMsg, setSupabaseSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleDashboardSupabaseSync = async () => {
+    setIsSupabaseSyncing(true);
+    setSupabaseSyncMsg(null);
+    try {
+      const res = await syncProductsToSupabase();
+      setSupabaseSyncMsg({
+        type: res.success ? 'success' : 'error',
+        text: res.message,
+      });
+    } catch (err: any) {
+      setSupabaseSyncMsg({
+        type: 'error',
+        text: err?.message || 'تعذر الاتصال بـ Supabase',
+      });
+    } finally {
+      setIsSupabaseSyncing(false);
+    }
+  };
 
   // Active dashboard tab
   const [activeTab, setActiveTab] = useState<
@@ -650,6 +676,74 @@ export const OwnerDashboard: React.FC = () => {
       {/* TAB 1: Overview & Reports */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Supabase PostgreSQL Cloud Banner */}
+          <div className="bg-gradient-to-r from-[#171614] via-[#1A1813] to-[#141414] p-4 sm:p-5 rounded-3xl border border-[#4A3B1B] shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#8C6D1F] text-stone-950 flex items-center justify-center text-xl font-black shadow-md shadow-[#D4AF37]/20 shrink-0">
+                <Cloud className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold font-heading text-[#F5EBE6]">
+                    الربط السحابي المركزي (Supabase PostgreSQL)
+                  </h3>
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                      supabaseConnected
+                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+                        : 'bg-amber-950/80 text-amber-300 border-amber-700'
+                    }`}
+                  >
+                    {supabaseConnected ? 'متصل سحابياً 🟢' : 'قيد المزامنة 🟡'}
+                  </span>
+                </div>
+                <p className="text-xs text-[#8C827A] mt-0.5">
+                  حفظ الفواتير والخصم التلقائي للمخزون عبر Transactions ذريّة لحظية مع المزامنة بين أجهزة الكاشير والموبايل.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={handleDashboardSupabaseSync}
+                disabled={isSupabaseSyncing}
+                className={`cursor-pointer px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 ${
+                  isSupabaseSyncing
+                    ? 'bg-[#332A15] text-[#D4AF37] border border-[#5A451A] opacity-70 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#D4AF37] to-[#B89028] text-stone-950 hover:brightness-110 shadow-[#D4AF37]/20'
+                }`}
+                title="رفع الأصناف والأسعار الحالية إلى قاعدة بيانات Supabase"
+              >
+                <Cloud className="w-4 h-4" />
+                <span>{isSupabaseSyncing ? 'جارٍ رفع ومزامنة كل البيانات...' : 'مزامنة كل البيانات للسحابة الآن (شامل) ☁️'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Cloud Sync Feedback Alert */}
+          {supabaseSyncMsg && (
+            <div
+              className={`p-3.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-between gap-3 shadow-md border ${
+                supabaseSyncMsg.type === 'success'
+                  ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700'
+                  : 'bg-red-950/90 text-red-200 border-red-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{supabaseSyncMsg.text}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSupabaseSyncMsg(null)}
+                className="cursor-pointer text-white/60 hover:text-white text-xs px-2 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* KPI Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-[#141414] p-5 rounded-3xl border border-[#2A2A2A] shadow-sm">
@@ -2432,6 +2526,69 @@ export const OwnerDashboard: React.FC = () => {
                 <span>تصدير تقرير المبيعات Excel</span>
               </button>
             </div>
+          </div>
+
+          {/* Cloud Database Integration Card (Supabase PostgreSQL) */}
+          <div className="bg-[#141414] border border-[#5A451A] p-6 rounded-3xl space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#2A2A2A] pb-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#8C6D1F] text-stone-950 flex items-center justify-center text-xl font-black shadow-md shadow-[#D4AF37]/20 shrink-0">
+                  <Cloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-bold text-[#F5EBE6]">
+                      قاعدة البيانات السحابية المركزية (Supabase PostgreSQL)
+                    </h4>
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        supabaseConnected
+                          ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+                          : 'bg-amber-950/80 text-amber-300 border-amber-700'
+                      }`}
+                    >
+                      {supabaseConnected ? 'متصل سحابياً 🟢' : 'قيد المزامنة 🟡'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8C827A] mt-1">
+                    مشروع Supabase معرف: <code className="text-[#D4AF37] font-mono px-1 bg-[#1F180F] rounded">roblzbjqazyhmbeclodo</code> • دعم ACID Transactions والمزامنة اللحظية بين الأجهزة.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDashboardSupabaseSync}
+                disabled={isSupabaseSyncing}
+                className={`cursor-pointer px-5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shrink-0 active:scale-95 ${
+                  isSupabaseSyncing
+                    ? 'bg-[#332A15] text-[#D4AF37] border border-[#5A451A] opacity-70 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#D4AF37] to-[#B89028] text-stone-950 hover:brightness-110 shadow-[#D4AF37]/20'
+                }`}
+              >
+                <Cloud className="w-4 h-4" />
+                <span>{isSupabaseSyncing ? 'جارٍ المزامنة السحابية...' : 'مزامنة ورفع الأصناف للسحابة ☁️'}</span>
+              </button>
+            </div>
+
+            {supabaseSyncMsg && (
+              <div
+                className={`p-3 rounded-2xl text-xs font-bold flex items-center justify-between gap-2 border ${
+                  supabaseSyncMsg.type === 'success'
+                    ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700'
+                    : 'bg-red-950/90 text-red-200 border-red-700'
+                }`}
+              >
+                <span>{supabaseSyncMsg.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setSupabaseSyncMsg(null)}
+                  className="cursor-pointer text-white/60 hover:text-white px-2 py-0.5"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Technical Explanations & Best Practice Guidance Guide */}

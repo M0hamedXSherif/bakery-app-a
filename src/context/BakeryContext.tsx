@@ -33,6 +33,13 @@ import {
   getDeviceInfo,
   generateSessionToken,
 } from '../utils/securityUtils';
+import {
+  supabase,
+  isSupabaseConfigured,
+  checkSupabaseHealth,
+  executeSaleTransaction,
+  syncAllBakeryDataToSupabase,
+} from '../lib/supabase';
 
 interface BakeryContextType {
   // Auth & Session
@@ -191,6 +198,10 @@ interface BakeryContextType {
   exportBackupJSON: () => BakeryBackupData;
   restoreBackupJSON: (backupData: BakeryBackupData) => { success: boolean; message: string };
   exportSalesCSV: () => string;
+
+  // Supabase Cloud Sync
+  supabaseConnected: boolean;
+  syncProductsToSupabase: () => Promise<{ success: boolean; message: string }>;
 }
 
 export type PermissionAction =
@@ -216,7 +227,7 @@ const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   ownerExtendedLockSeconds: 1800, // 30 minutes for owner
   ownerExtendedEnabled: true,
   warningSeconds: 30, // 30 seconds before auto-locking
-  require2FAForManagers: true,
+  require2FAForManagers: false, // Optional, can be enabled by owner in settings
   passwordMinLength: 8,
   passwordExpiryDays: 30,
   maxFailedAttempts: 3,
@@ -301,26 +312,37 @@ export const BakeryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    // Check if there is an active session in sessionStorage
+    const isSessionActive = sessionStorage.getItem('bakery_session_active') === 'true';
     const savedUser = localStorage.getItem('bakery_current_user');
-    if (savedUser) {
+    const isExplicitlyLocked = localStorage.getItem('bakery_is_locked');
+    if (isSessionActive && savedUser && isExplicitlyLocked === 'false') {
       try {
         return JSON.parse(savedUser);
       } catch {
-        return INITIAL_USERS[0]; // default to owner if parse fails
+        return null;
       }
     }
-    // Default to Owner on fresh run so the user can immediately experience the app
-    return INITIAL_USERS[0];
+    // Always start unauthenticated on fresh launch as requested by user
+    return null;
   });
 
   const [isLocked, setIsLocked] = useState<boolean>(() => {
-    const saved = localStorage.getItem('bakery_is_locked');
-    return saved ? JSON.parse(saved) : false;
+    const isSessionActive = sessionStorage.getItem('bakery_session_active') === 'true';
+    const isExplicitlyLocked = localStorage.getItem('bakery_is_locked');
+    if (isSessionActive && isExplicitlyLocked === 'false') {
+      return false;
+    }
+    // Always start locked so user must login first
+    return true;
   });
 
   useEffect(() => {
     localStorage.setItem('bakery_is_locked', JSON.stringify(isLocked));
-  }, [isLocked]);
+    if (!currentUser) {
+      sessionStorage.removeItem('bakery_session_active');
+    }
+  }, [isLocked, currentUser]);
 
   // Single active session: Detect if user logged into another device/tab
   useEffect(() => {
@@ -589,6 +611,98 @@ export const BakeryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('bakery_sound_enabled', JSON.stringify(soundEnabled));
     sounds.enabled = soundEnabled;
   }, [soundEnabled]);
+
+  // Supabase Cloud State & Realtime Multi-Device Sync
+  const [supabaseConnected, setSupabaseConnected] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    checkSupabaseHealth().then((res) => {
+      setSupabaseConnected(res.connected);
+      if (res.connected) {
+        console.log('✅ Supabase PostgreSQL connected successfully!');
+      }
+    });
+  }, []);
+
+  // Multi-device real-time sync with Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const channel = supabase
+      .channel('bakery_multi_device_sync')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'sales' },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (!newRow) return;
+          setSales((prev) => {
+            if (prev.some((s) => s.invoiceNumber === newRow.invoice_number)) {
+              return prev;
+            }
+            const incomingSale: SaleRecord = {
+              id: newRow.id,
+              invoiceNumber: newRow.invoice_number,
+              cashierId: newRow.cashier_id || 'remote',
+              cashierName: newRow.cashier_name || 'جهاز كاشير آخر',
+              timestamp: newRow.created_at || new Date().toISOString(),
+              items: [],
+              totalAmount: parseFloat(newRow.total_amount) || 0,
+              paymentMethod: newRow.payment_method || 'cash',
+              cashGiven: newRow.cash_given ? parseFloat(newRow.cash_given) : undefined,
+              changeDue: newRow.change_due ? parseFloat(newRow.change_due) : undefined,
+              status: newRow.status || 'completed',
+            };
+            return [incomingSale, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'products' },
+        (payload) => {
+          const updatedRow = payload.new as any;
+          if (!updatedRow) return;
+          setProducts((prev) =>
+            prev.map((p) =>
+              p.id === updatedRow.id
+                ? {
+                    ...p,
+                    stock: parseFloat(updatedRow.stock) ?? p.stock,
+                    price: parseFloat(updatedRow.price) ?? p.price,
+                    isAvailable: updatedRow.is_available ?? p.isAvailable,
+                  }
+                : p
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const syncProductsToSupabase = useCallback(async () => {
+    try {
+      const res = await syncAllBakeryDataToSupabase({
+        users,
+        rawMaterials,
+        products,
+        bakerySettings,
+        currentShift,
+        shiftHistory,
+        sales,
+        refundRequests,
+        auditLogs,
+      });
+      return res;
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'حدث خطأ أثناء المزامنة الشاملة' };
+    }
+  }, [users, rawMaterials, products, bakerySettings, currentShift, shiftHistory, sales, refundRequests, auditLogs]);
 
   // Log an audit trail item
   const logAuditAction = useCallback(
@@ -872,7 +986,10 @@ export const BakeryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCurrentUser(updatedUser);
       setIsLocked(false);
 
+      sessionStorage.setItem('bakery_session_active', 'true');
       sessionStorage.setItem('bakery_my_session_token', sessionToken);
+      localStorage.setItem('bakery_current_user', JSON.stringify(updatedUser));
+      localStorage.setItem('bakery_is_locked', JSON.stringify(false));
       localStorage.setItem(
         'bakery_active_session_sync',
         JSON.stringify({ userId: userObj.id, token: sessionToken, timestamp: Date.now() })
@@ -1174,8 +1291,12 @@ export const BakeryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       logAuditAction('تسجيل خروج', `قام ${currentUser.name} بتسجيل الخروج من النظام`, 'login');
     }
     setCurrentUser(null);
+    setIsLocked(true);
+    sessionStorage.removeItem('bakery_session_active');
+    sessionStorage.removeItem('bakery_my_session_token');
     localStorage.removeItem('bakery_current_user');
     localStorage.removeItem('bakery_remember_user');
+    localStorage.setItem('bakery_is_locked', JSON.stringify(true));
   }, [currentUser, currentShift, logAuditAction]);
 
   const registerStaff = useCallback(
@@ -2220,6 +2341,27 @@ export const BakeryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         'sale'
       );
 
+      // Execute Cloud ACID Transaction on Supabase (PostgreSQL)
+      executeSaleTransaction({
+        invoiceNumber,
+        shiftId: currentShift?.id,
+        cashierId: currentUser?.id || 'staff',
+        cashierName: currentUser?.name || 'كاشير المخبز',
+        totalAmount,
+        paymentMethod,
+        cashGiven,
+        changeDue,
+        items: itemsSnapshot,
+      }).then((res) => {
+        if (res.success) {
+          console.log('✅ Sale recorded in Supabase PostgreSQL:', res.saleId);
+        } else {
+          console.warn('⚠️ Supabase sync status:', res.error);
+        }
+      }).catch((err) => {
+        console.warn('⚠️ Supabase network sync issue:', err);
+      });
+
       // Clear cart and play sound
       setCart([]);
       sounds.playSuccess();
@@ -2992,6 +3134,9 @@ export const BakeryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         exportBackupJSON,
         restoreBackupJSON,
         exportSalesCSV,
+
+        supabaseConnected,
+        syncProductsToSupabase,
       }}
     >
       {children}

@@ -18,6 +18,8 @@ import {
   Package,
   Power,
   ChefHat,
+  Cloud,
+  Database,
 } from 'lucide-react';
 import { useBakery } from '../../context/BakeryContext';
 import { LowStockAlertModal } from './LowStockAlertModal';
@@ -49,10 +51,27 @@ export const Header: React.FC<HeaderProps> = ({
     bakerySettings,
     theme,
     toggleTheme,
+    supabaseConnected,
+    syncProductsToSupabase,
   } = useBakery();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  const handleSyncToSupabase = async () => {
+    setIsSyncing(true);
+    setSyncFeedback(null);
+    try {
+      const res = await syncProductsToSupabase();
+      setSyncFeedback(res.message);
+    } catch {
+      setSyncFeedback('حدث خطأ أثناء الاتصال بالسحابة');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const isOwner = currentUser?.role === 'owner';
   const totalLowStock = lowStockProducts.length + lowStockRawMaterials.length;
@@ -257,8 +276,30 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          {/* 3. Action Controls: Theme Switcher + Standby Button */}
+          {/* 3. Action Controls: Supabase Cloud Badge + Theme Switcher + Standby Button */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Supabase Cloud Connection & Quick Sync Button */}
+            <button
+              type="button"
+              onClick={handleSyncToSupabase}
+              disabled={isSyncing}
+              className={`cursor-pointer flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border text-[10px] sm:text-xs font-bold transition-all shadow-xs ${
+                supabaseConnected
+                  ? isLight
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border-emerald-700/60'
+                  : isLight
+                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                  : 'bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border-amber-700/60'
+              } ${isSyncing ? 'animate-pulse opacity-70' : ''}`}
+              title="اضغط هنا لمزامنة كامل بيانات المخبز (الأصناف، الخامات، الموظفين، الإعدادات) مع Supabase سحابياً"
+            >
+              <Cloud className={`w-3.5 h-3.5 shrink-0 ${supabaseConnected ? 'text-emerald-500' : 'text-amber-500'}`} />
+              <span className="inline whitespace-nowrap">
+                {isSyncing ? 'جارٍ المزامنة الشاملة...' : 'مزامنة السحابة ☁️'}
+              </span>
+            </button>
+
             {/* Theme Toggle Button */}
             <button
               type="button"
@@ -423,6 +464,21 @@ export const Header: React.FC<HeaderProps> = ({
 
                       <button
                         type="button"
+                        onClick={handleSyncToSupabase}
+                        disabled={isSyncing}
+                        className={`cursor-pointer px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition border ${
+                          isLight
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-emerald-950/40 text-emerald-300 border-emerald-700/60 hover:bg-emerald-900/50'
+                        } ${isSyncing ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        title="رفع ومزامنة كامل بيانات المخبز (الأصناف، الخامات، الموظفين، الإعدادات) لقاعدة بيانات Supabase السحابية"
+                      >
+                        <Database className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>{isSyncing ? 'جارٍ المزامنة الشاملة...' : 'مزامنة كل البيانات للسحابة (شامل)'}</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => {
                           onOpenAuth();
                           setIsDrawerOpen(false);
@@ -438,6 +494,30 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* Sync Feedback message */}
+                  {syncFeedback && (
+                    <div
+                      className={`text-xs p-2 rounded-xl border flex items-center justify-between ${
+                        syncFeedback.includes('نجاح')
+                          ? isLight
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                          : isLight
+                          ? 'bg-red-50 text-red-800 border-red-300'
+                          : 'bg-red-950 text-red-300 border-red-800'
+                      }`}
+                    >
+                      <span>{syncFeedback}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSyncFeedback(null)}
+                        className="cursor-pointer text-xs font-bold px-2 py-0.5"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
 
                   {/* Quick User Switcher Grid */}
                   <div>
@@ -497,6 +577,42 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </AnimatePresence>
       </header>
+
+      {/* Floating Supabase Sync Feedback Notification */}
+      <AnimatePresence>
+        {syncFeedback && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4"
+          >
+            <div
+              className={`p-3.5 rounded-2xl shadow-2xl border flex items-center justify-between gap-3 text-xs sm:text-sm font-bold backdrop-blur-md ${
+                syncFeedback.includes('نجاح')
+                  ? isLight
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/30'
+                    : 'bg-emerald-900/95 text-emerald-100 border-emerald-600 shadow-emerald-950/60'
+                  : isLight
+                  ? 'bg-red-600 text-white border-red-500 shadow-red-600/30'
+                  : 'bg-red-900/95 text-red-100 border-red-600 shadow-red-950/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Cloud className="w-5 h-5 shrink-0" />
+                <span>{syncFeedback}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSyncFeedback(null)}
+                className="cursor-pointer p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/20"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Low Stock Alert Modal */}
       <LowStockAlertModal

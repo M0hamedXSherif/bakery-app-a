@@ -36,22 +36,20 @@ function BakeryApp() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [isRefundOpen, setIsRefundOpen] = useState<boolean>(false);
 
-  // Auto-switch view to 'kitchen' if the logged-in user is a chef or baker or preferredView is kitchen
+  // Role-based screen redirection upon login:
+  // Director/Owner -> Dashboard, Chef/Baker -> Kitchen, Cashier -> POS
   useEffect(() => {
-    if (!currentUser) return;
-    if (currentUser.role === 'owner') return;
+    if (!currentUser || isLocked) return;
 
-    if (currentUser.preferredView === 'kitchen') {
-      setCurrentView('kitchen');
+    // 1. Owner / Manager: Direct to Owner Dashboard
+    if (currentUser.role === 'owner') {
+      setCurrentView('dashboard');
       return;
     }
 
-    if (currentUser.preferredView === 'pos') {
-      setCurrentView('pos');
-      return;
-    }
-
+    // 2. Chef / Baker: Direct to Kitchen Production Screen
     const isChef =
+      currentUser.preferredView === 'kitchen' ||
       currentUser.department === 'baker' ||
       currentUser.department === 'pastry_chef' ||
       currentUser.department === 'bakery' ||
@@ -65,8 +63,19 @@ function BakeryApp() {
 
     if (isChef) {
       setCurrentView('kitchen');
+      return;
     }
-  }, [currentUser?.id, currentUser?.department, currentUser?.role, currentUser?.preferredView]);
+
+    // 3. Cashier / Sales: Direct to POS Screen
+    setCurrentView('pos');
+  }, [
+    currentUser?.id,
+    currentUser?.role,
+    currentUser?.department,
+    currentUser?.jobTitle,
+    currentUser?.preferredView,
+    isLocked,
+  ]);
 
   // Hook for Inactivity / Auto-Lock tracking (120s default, warning at 30s)
   // Protects screen if invoice is open (cart.length > 0)
